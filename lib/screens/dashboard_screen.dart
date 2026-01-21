@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import 'inventory_screen.dart';
+import 'pos_screen.dart';
+import 'customer_screen.dart';
+import 'reports_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,10 +17,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const Center(child: Text('Dashboard Overview Content')),
-    const Center(child: Text('Inventory List Content')),
-    const Center(child: Text('POS / Billing Content')),
-    const Center(child: Text('Customer List Content')),
+    const ReportsScreen(),
+    const InventoryScreen(),
+    const PosScreen(),
+    const CustomerScreen(),
   ];
 
   @override
@@ -41,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
                 child: Text(
-                  user?['name']?[0]?.toUpperCase() ?? 'U',
+                  (user?['name'] as String?)?[0].toUpperCase() ?? 'U',
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),

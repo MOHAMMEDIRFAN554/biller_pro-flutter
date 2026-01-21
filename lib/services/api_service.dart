@@ -27,21 +27,48 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  Future<String?> _getCookie() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('cookie');
+  }
+
+  Future<void> _saveCookie(String? cookie) async {
+    if (cookie == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    // Only save the jwt part
+    final jwtCookie = cookie.split(';').firstWhere((element) => element.trim().startsWith('jwt='), orElse: () => '');
+    if (jwtCookie.isNotEmpty) {
+      await prefs.setString('cookie', jwtCookie);
+    }
+  }
+
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      final cookie = await _getCookie();
       final response = await http.post(
-        Uri.parse('$baseUrl/users/auth'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$baseUrl/users/login'), // Fixed endpoint from /auth to /login
+        headers: {
+          'Content-Type': 'application/json',
+          if (cookie != null) 'cookie': cookie,
+        },
         body: json.encode({'email': email, 'password': password}),
       );
 
       if (response.statusCode == 200) {
         _userInfo = json.decode(response.body);
+        
+        // Manual Cookie Handling
+        final setCookie = response.headers['set-cookie'];
+        if (setCookie != null) {
+          await _saveCookie(setCookie);
+        }
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userInfo', response.body);
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -51,6 +78,7 @@ class ApiService extends ChangeNotifier {
         return false;
       }
     } catch (e) {
+      debugPrint('Login Error: $e');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -61,18 +89,51 @@ class ApiService extends ChangeNotifier {
     _userInfo = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userInfo');
+    await prefs.remove('cookie');
     notifyListeners();
   }
 
-  // Common GET helper with Auth header (simulated, as original server uses cookies)
-  // Note: For mobile, you might need to adjust the backend to support Header-based Auth 
-  // if cookies are not handled automatically by the platform.
   Future<dynamic> get(String endpoint) async {
-    // Add logic here to include credentials/cookies if needed
-    final response = await http.get(Uri.parse('$baseUrl/$endpoint'));
+    final cookie = await _getCookie();
+    final response = await http.get(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: {
+        if (cookie != null) 'cookie': cookie,
+      },
+    );
     if (response.statusCode == 200) {
       return json.decode(response.body);
     }
-    throw Exception('Failed to load data');
+    throw Exception('Failed to load data: ${response.statusCode}');
+  }
+
+  Future<dynamic> post(String endpoint, dynamic data) async {
+    final cookie = await _getCookie();
+    final response = await http.post(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (cookie != null) 'cookie': cookie,
+      },
+      body: json.encode(data),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to post data: ${response.statusCode}');
+  }
+
+  Future<dynamic> delete(String endpoint) async {
+    final cookie = await _getCookie();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$endpoint'),
+      headers: {
+        if (cookie != null) 'cookie': cookie,
+      },
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to delete data: ${response.statusCode}');
   }
 }
