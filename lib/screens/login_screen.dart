@@ -52,10 +52,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  Icons.receipt_long_rounded,
-                  size: 40,
-                  color: Theme.of(context).primaryColor,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  width: 48,
+                  height: 48,
                 ),
               ),
               const SizedBox(height: 24),

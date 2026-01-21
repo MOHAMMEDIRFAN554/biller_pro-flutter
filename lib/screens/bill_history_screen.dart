@@ -69,6 +69,10 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                           icon: const Icon(Icons.print, color: Colors.blue),
                           onPressed: () => _printBill(b),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.assignment_return, color: Colors.orange),
+                          onPressed: () => _showReturnDialog(b),
+                        ),
                       ],
                     ),
                   ),
@@ -77,6 +81,86 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
             ),
           ),
     );
+  }
+
+  void _showReturnDialog(dynamic b) {
+    List<Map<String, dynamic>> returnItems = [];
+    final items = b['items'] as List;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Return - ${b['billNumber'] ?? 'Bill'}'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () => _processReturn(b['_id'], returnItems),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+              child: const Text('Process Return'),
+            ),
+          ],
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                itemBuilder: (context, idx) {
+                  final item = items[idx];
+                  final productId = item['product'] is Map ? item['product']['_id'] : item['product'];
+                  int maxQty = (item['quantity'] as num).toInt() - ((item['returnedQuantity'] ?? 0) as num).toInt();
+                  
+                  return ListTile(
+                    title: Text(item['name'] ?? 'Product'),
+                    subtitle: Text('Max Returnable: $maxQty'),
+                    trailing: SizedBox(
+                      width: 60,
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(isDense: true, hintText: '0'),
+                        onChanged: (val) {
+                          int qty = int.tryParse(val) ?? 0;
+                          if (qty > maxQty) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot return more than purchased')));
+                            return;
+                          }
+                          returnItems.removeWhere((ri) => ri['productId'] == productId);
+                          if (qty > 0) {
+                            returnItems.add({'productId': productId, 'quantity': qty});
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _processReturn(String billId, List<Map<String, dynamic>> items) async {
+    if (items.isEmpty) return;
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      await api.post('returns/sales', {
+        'billId': billId,
+        'items': items,
+        'reason': 'Customer Return (Mobile App)',
+        'refundMode': 'Ledger'
+      });
+      if (mounted) {
+        Navigator.pop(context);
+        _fetchBills();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Return processed successfully')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Future<void> _printBill(dynamic b) async {

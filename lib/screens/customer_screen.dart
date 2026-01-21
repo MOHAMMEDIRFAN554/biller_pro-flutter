@@ -97,12 +97,65 @@ class _CustomerScreenState extends State<CustomerScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Add customer logic
-        },
+        onPressed: _showAddCustomerDialog,
         child: const Icon(Icons.person_add),
       ),
     );
+  }
+
+  void _showAddCustomerDialog() {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final emailController = TextEditingController();
+    final addressController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Customer'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name*')),
+              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone*'), keyboardType: TextInputType.phone),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
+              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
+                _addCustomer(nameController.text, phoneController.text, emailController.text, addressController.text);
+              }
+            },
+            child: const Text('Save Customer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addCustomer(String name, String phone, String email, String address) async {
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      await api.post('customers', {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'address': address
+      });
+      if (mounted) {
+        Navigator.pop(context);
+        _fetchCustomers();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer added successfully')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   void _showCollectionDialog(Customer c) {

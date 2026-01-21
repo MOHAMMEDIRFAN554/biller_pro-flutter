@@ -94,10 +94,66 @@ class _VendorScreenState extends State<VendorScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () { /* Add Vendor Logic */ },
+        onPressed: _showAddVendorDialog,
         backgroundColor: Colors.orange,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  void _showAddVendorDialog() {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final emailController = TextEditingController();
+    final addressController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Vendor'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Business Name*')),
+              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone*'), keyboardType: TextInputType.phone),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
+              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
+                _addVendor(nameController.text, phoneController.text, emailController.text, addressController.text);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: const Text('Save Vendor'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addVendor(String name, String phone, String email, String address) async {
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      await api.post('vendors', {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'address': address
+      });
+      if (mounted) {
+        Navigator.pop(context);
+        _fetchVendors();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vendor added successfully')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 }

@@ -8,6 +8,8 @@ class Product {
   final double stock;
   final double gstRate;
 
+  double get purchasePrice => cost;
+
   Product({
     required this.id,
     required this.name,

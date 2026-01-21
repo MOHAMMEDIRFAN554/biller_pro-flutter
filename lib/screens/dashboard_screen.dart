@@ -58,10 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             UserAccountsDrawerHeader(
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Text(
-                  (user?['name'] as String?)?[0].toUpperCase() ?? 'U',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                ),
+                backgroundImage: const AssetImage('assets/images/logo.png'),
               ),
               accountName: Text(user?['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
               accountEmail: Text(user?['email'] ?? 'user@billerpro.com'),

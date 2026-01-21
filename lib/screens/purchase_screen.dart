@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/purchase_model.dart';
+import 'new_purchase_screen.dart';
 
 class PurchaseScreen extends StatefulWidget {
   const PurchaseScreen({super.key});
@@ -75,7 +76,13 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
             ),
           ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () { /* New Purchase Logic */ },
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NewPurchaseScreen()),
+          );
+          if (result == true) _fetchPurchases();
+        },
         backgroundColor: Colors.indigo,
         child: const Icon(Icons.add_shopping_cart, color: Colors.white),
       ),
