@@ -1,11 +1,8 @@
-import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/bill_model.dart';
 import 'package:intl/intl.dart';
-import 'api_service.dart';
-import 'package:provider/provider.dart';
 
 class PdfService {
   static Future<void> generateAndPrintBill(Bill bill, {Map<String, dynamic>? companyProfile}) async {
@@ -65,15 +62,15 @@ class PdfService {
                 ],
               )),
               
-              if (companyProfile?['enableQrPayments'] == true && companyProfile?['upiId'] != null)
+              if (companyProfile?['enableQrPayments'] == true && companyProfile?['upiId'] != null && bill.balanceAmount > 0)
                 pw.Center(
                   child: pw.Column(
                     children: [
                       pw.SizedBox(height: 10),
-                      pw.Text('SCAN TO PAY BALANCE', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('SCAN TO PAY BALANCE DUE: ₹${bill.balanceAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)),
                       pw.BarcodeWidget(
                         barcode: pw.Barcode.qrCode(),
-                        data: 'upi://pay?pa=${companyProfile?['upiId']}&pn=${Uri.encodeComponent(companyProfile?['upiName'] ?? companyProfile?['name'])}&am=${bill.grandTotal.toStringAsFixed(2)}&cu=INR',
+                        data: 'upi://pay?pa=${companyProfile?['upiId']}&pn=${Uri.encodeComponent(companyProfile?['upiName'] ?? companyProfile?['name'])}&am=${bill.balanceAmount.toStringAsFixed(2)}&cu=INR',
                         width: 60,
                         height: 60,
                       ),
@@ -83,7 +80,7 @@ class PdfService {
                 ),
 
               pw.SizedBox(height: 10),
-              pw.Center(child: pw.Text('THANK YOU!', style: pw.TextStyle(fontSize: 8))),
+              pw.Center(child: pw.Text('THANK YOU!', style: const pw.TextStyle(fontSize: 8))),
             ],
           );
         },

@@ -25,6 +25,9 @@ class Bill {
     this.billNumber,
   });
 
+  double get paidTotal => payments.fold(0, (sum, p) => sum + p.amount);
+  double get balanceAmount => (grandTotal - paidTotal).clamp(0, double.infinity);
+
   Map<String, dynamic> toJson() {
     return {
       'customer': customer,
@@ -103,11 +106,13 @@ class Payment {
   final String mode;
   final double amount;
   final String? reference;
+  final bool showQr;
 
   Payment({
     required this.mode,
     required this.amount,
     this.reference,
+    this.showQr = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -123,6 +128,7 @@ class Payment {
       mode: json['mode'] ?? 'Cash',
       amount: (json['amount'] ?? 0).toDouble(),
       reference: json['reference'],
+      showQr: json['showQr'] ?? false,
     );
   }
 }

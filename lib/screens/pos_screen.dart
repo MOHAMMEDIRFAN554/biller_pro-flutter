@@ -232,24 +232,41 @@ class _PosScreenState extends State<PosScreen> {
                         ],
                       ),
                       if (p.mode == 'UPI' && _companyProfile != null && _companyProfile!['enableQrPayments'] == true && _companyProfile!['upiId'] != null)
-                        Container(
-                          margin: const EdgeInsets.symmetric(vertical: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(border: Border.all(color: Colors.blue.shade100), borderRadius: BorderRadius.circular(12), color: Colors.blue.shade50),
-                          child: Column(
-                            children: [
-                              Text('Scan to Pay ₹${p.amount}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              BarcodeWidget(
-                                barcode: Barcode.qrCode(),
-                                data: 'upi://pay?pa=${_companyProfile!['upiId']}&pn=${Uri.encodeComponent(_companyProfile!['upiName'] ?? _companyProfile!['name'])}&am=${p.amount.toStringAsFixed(2)}&cu=INR',
-                                width: 120,
-                                height: 120,
+                        Column(
+                          children: [
+                            Row(
+                              children: [
+                                Switch(
+                                  value: p.showQr, 
+                                  onChanged: (val) {
+                                    setSheetState(() => _payments[idx] = Payment(mode: p.mode, amount: p.amount, reference: p.reference, showQr: val));
+                                    setState(() {});
+                                  }
+                                ),
+                                const Text('GENERATE QR CODE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+                              ],
+                            ),
+                            if (p.showQr)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(border: Border.all(color: Colors.blue.shade100), borderRadius: BorderRadius.circular(12), color: Colors.blue.shade50),
+                                child: Column(
+                                  children: [
+                                    Text('Scan to Pay ₹${p.amount}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    const SizedBox(height: 8),
+                                    BarcodeWidget(
+                                      barcode: Barcode.qrCode(),
+                                      data: 'upi://pay?pa=${_companyProfile!['upiId']}&pn=${Uri.encodeComponent(_companyProfile!['upiName'] ?? _companyProfile!['name'])}&am=${p.amount.toStringAsFixed(2)}&cu=INR',
+                                      width: 120,
+                                      height: 120,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(_companyProfile!['upiId'], style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(_companyProfile!['upiId'], style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                            ],
-                          ),
+                          ],
                         ),
                       if (p.mode == 'UPI' || p.mode == 'Card')
                         TextField(
