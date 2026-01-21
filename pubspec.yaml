@@ -14,8 +14,10 @@ dependencies:
   intl: ^0.19.0
   google_fonts: ^6.1.0
   flutter_spinkit: ^5.2.0
-  lucide_icons: ^0.257.0
+  lucide_icons: 
   fl_chart: ^0.66.0
+  pdf: ^3.10.8
+  printing: ^5.11.1
 
 dev_dependencies:
   flutter_test:

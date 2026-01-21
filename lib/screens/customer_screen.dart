@@ -74,7 +74,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.blue.withOpacity(0.1),
+                            backgroundColor: Colors.blue.withValues(alpha: 0.1),
                             child: Text((c.name.isNotEmpty ? c.name[0] : 'C').toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                           ),
                           title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -87,9 +87,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                               const Text('Balance', style: TextStyle(fontSize: 10, color: Colors.grey)),
                             ],
                           ),
-                          onTap: () {
-                            // View Ledger logic
-                          },
+                          onTap: () => _showCollectionDialog(c),
                         ),
                       );
                     },
@@ -105,5 +103,49 @@ class _CustomerScreenState extends State<CustomerScreen> {
         child: const Icon(Icons.person_add),
       ),
     );
+  }
+
+  void _showCollectionDialog(Customer c) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Collect Cash - ${c.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current Balance: ₹${c.ledgerBalance}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Amount to Collect', prefixText: '₹'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => _collectCash(c, double.tryParse(controller.text) ?? 0),
+            child: const Text('Record Payment'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _collectCash(Customer c, double amount) async {
+    if (amount <= 0) return;
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      await api.post('customers/${c.id}/collect', {'amount': amount});
+      if (mounted) {
+        Navigator.pop(context);
+        _fetchCustomers();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded successfully')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 }
