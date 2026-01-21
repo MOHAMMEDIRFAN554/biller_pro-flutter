@@ -138,7 +138,13 @@ class _CustomerScreenState extends State<CustomerScreen> {
     if (amount <= 0) return;
     try {
       final api = Provider.of<ApiService>(context, listen: false);
-      await api.post('customers/${c.id}/collect', {'amount': amount});
+      await api.post('ledger/payments', {
+        'customer': c.id,
+        'amount': amount,
+        'mode': 'Cash',
+        'type': 'PAYMENT',
+        'description': 'Cash collection from customer'
+      });
       if (mounted) {
         Navigator.pop(context);
         _fetchCustomers();

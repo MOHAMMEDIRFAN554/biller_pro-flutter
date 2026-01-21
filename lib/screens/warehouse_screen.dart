@@ -54,6 +54,21 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Warehouse Inventory'), 
+        backgroundColor: Colors.white, 
+        foregroundColor: Colors.black, 
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_shopping_cart, color: Colors.blue),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Navigate to Entry from Sidebar')));
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(

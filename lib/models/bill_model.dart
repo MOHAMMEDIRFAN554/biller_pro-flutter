@@ -4,12 +4,12 @@ class Bill {
   final List<BillItem> items;
   final double subTotal;
   final double taxAmount;
-  final double totalDiscount;
+  final double discountAmount; // Changed from totalDiscount
   final double grandTotal;
   final double roundOff;
   final List<Payment> payments;
   final DateTime? createdAt;
-  final String? billNo;
+  final String? billNumber; // Changed from billNo to match backend
 
   Bill({
     this.id,
@@ -17,12 +17,12 @@ class Bill {
     required this.items,
     required this.subTotal,
     required this.taxAmount,
-    required this.totalDiscount,
+    required this.discountAmount,
     required this.grandTotal,
     required this.roundOff,
     required this.payments,
     this.createdAt,
-    this.billNo,
+    this.billNumber,
   });
 
   Map<String, dynamic> toJson() {
@@ -31,11 +31,27 @@ class Bill {
       'items': items.map((i) => i.toJson()).toList(),
       'subTotal': subTotal,
       'taxAmount': taxAmount,
-      'totalDiscount': totalDiscount,
+      'discountAmount': discountAmount,
       'grandTotal': grandTotal,
       'roundOff': roundOff,
       'payments': payments.map((p) => p.toJson()).toList(),
     };
+  }
+
+  factory Bill.fromJson(Map<String, dynamic> json) {
+    return Bill(
+      id: json['_id'],
+      customer: json['customer'] != null ? (json['customer'] is Map ? json['customer']['_id'] : json['customer']) : null,
+      items: (json['items'] as List).map((i) => BillItem.fromJson(i)).toList(),
+      subTotal: (json['subTotal'] ?? 0).toDouble(),
+      taxAmount: (json['taxAmount'] ?? 0).toDouble(),
+      discountAmount: (json['discountAmount'] ?? 0).toDouble(),
+      grandTotal: (json['grandTotal'] ?? 0).toDouble(),
+      roundOff: (json['roundOff'] ?? 0).toDouble(),
+      payments: (json['payments'] as List).map((p) => Payment.fromJson(p)).toList(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      billNumber: json['billNumber'],
+    );
   }
 }
 
@@ -69,6 +85,18 @@ class BillItem {
       'totalAmount': totalAmount,
     };
   }
+
+  factory BillItem.fromJson(Map<String, dynamic> json) {
+    return BillItem(
+      product: json['product'] ?? '',
+      name: json['name'] ?? '',
+      price: (json['price'] ?? 0).toDouble(),
+      quantity: (json['quantity'] ?? 0).toDouble(),
+      gstRate: (json['gstRate'] ?? 0).toDouble(),
+      discountAmount: (json['discountAmount'] ?? 0).toDouble(),
+      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
+    );
+  }
 }
 
 class Payment {
@@ -88,5 +116,13 @@ class Payment {
       'amount': amount,
       'reference': reference,
     };
+  }
+
+  factory Payment.fromJson(Map<String, dynamic> json) {
+    return Payment(
+      mode: json['mode'] ?? 'Cash',
+      amount: (json['amount'] ?? 0).toDouble(),
+      reference: json['reference'],
+    );
   }
 }

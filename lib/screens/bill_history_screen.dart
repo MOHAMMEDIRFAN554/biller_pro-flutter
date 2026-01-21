@@ -59,7 +59,7 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
                   child: ListTile(
                     title: Text(b['customerName'] ?? 'Walk-in Customer', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Bill: ${b['billNo']} | ${DateFormat('dd-MM-yyyy').format(DateTime.parse(b['createdAt']))}'),
+                    subtitle: Text('Bill: ${b['billNumber'] ?? b['billNo'] ?? "N/A"} | ${DateFormat('dd-MM-yyyy').format(DateTime.parse(b['createdAt']))}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -81,26 +81,8 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
 
   Future<void> _printBill(dynamic b) async {
     try {
-       // Map dynamic to Bill model
-       final bill = Bill(
-         billNo: b['billNo'],
-         items: (b['items'] as List).map((i) => BillItem(
-           product: i['product'] ?? '',
-           name: i['name'] ?? '',
-           quantity: (i['quantity'] ?? 0).toDouble(),
-           price: (i['price'] ?? 0).toDouble(),
-           gstRate: (i['gstRate'] ?? 0).toDouble(),
-           discountAmount: (i['discountAmount'] ?? 0).toDouble(),
-           totalAmount: (i['totalAmount'] ?? 0).toDouble(),
-         )).toList().cast<BillItem>(),
-         grandTotal: (b['grandTotal'] ?? 0).toDouble(),
-         subTotal: (b['subTotal'] ?? 0).toDouble(),
-         taxAmount: (b['taxAmount'] ?? 0).toDouble(),
-         totalDiscount: (b['totalDiscount'] ?? 0).toDouble(),
-         roundOff: (b['roundOff'] ?? 0).toDouble(),
-         payments: [],
-       );
-       await PdfService.generateAndPrintBill(bill);
+        final savedBill = Bill.fromJson(b);
+        await PdfService.generateAndPrintBill(savedBill);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Print Error: $e')));
     }

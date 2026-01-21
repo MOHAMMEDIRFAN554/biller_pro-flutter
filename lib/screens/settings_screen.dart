@@ -56,6 +56,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildTile(Icons.account_balance, 'Bank Name', _settings['bankName'] ?? 'N/A'),
               ]),
               const SizedBox(height: 24),
+              _buildSection('Payment & QR Settings', [
+                _buildTile(Icons.qr_code, 'UPI ID', _settings['upiId'] ?? 'Not Set'),
+                _buildTile(Icons.person_pin, 'UPI Name', _settings['upiName'] ?? 'Not Set'),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner, color: Colors.blue, size: 20),
+                  title: const Text('Dynamic QR Payments', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  subtitle: Text(_settings['enableQrPayments'] == true ? 'Enabled' : 'Disabled', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                ),
+              ]),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(

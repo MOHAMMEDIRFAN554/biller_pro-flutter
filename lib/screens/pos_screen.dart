@@ -5,6 +5,7 @@ import '../models/product_model.dart';
 import '../models/customer_model.dart';
 import '../models/bill_model.dart';
 import '../services/pdf_service.dart';
+import 'package:barcode_widget/barcode_widget.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -21,7 +22,8 @@ class _PosScreenState extends State<PosScreen> {
   bool _isLoading = false;
   String _search = '';
   String _customerSearch = '';
-  String _paymentMode = 'Cash'; // Default payment mode
+  List<Payment> _payments = [Payment(mode: 'Cash', amount: 0)]; // Multi-payment support
+  Map<String, dynamic>? _companyProfile;
 
   double get subTotal => _cartItems.fold(0, (sum, item) => sum + item.totalAmount);
   double get totalTax => _cartItems.fold(0, (sum, item) => sum + (item.totalAmount * (item.gstRate / (100 + item.gstRate))));
@@ -31,6 +33,19 @@ class _PosScreenState extends State<PosScreen> {
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchCompanyProfile();
+  }
+
+  Future<void> _fetchCompanyProfile() async {
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      final data = await api.get('settings/profile');
+      if (mounted) {
+        setState(() => _companyProfile = data);
+      }
+    } catch (e) {
+      debugPrint('Error profile: $e');
+    }
   }
 
   Future<void> _fetchProducts() async {
@@ -63,9 +78,18 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _addToCart(Product p) {
+    if (p.stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Zero stock available!')));
+      return;
+    }
+
     setState(() {
       int idx = _cartItems.indexWhere((item) => item.product == p.id);
       if (idx >= 0) {
+        if (_cartItems[idx].quantity + 1 > p.stock) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Insufficient stock!')));
+          return;
+        }
         _cartItems[idx] = BillItem(
           product: p.id,
           name: p.name,
@@ -86,11 +110,22 @@ class _PosScreenState extends State<PosScreen> {
           totalAmount: p.price,
         ));
       }
+      _resetPayments();
     });
+  }
+
+  void _resetPayments() {
+    _payments = [Payment(mode: 'Cash', amount: grandTotal)];
   }
 
   Future<void> _checkout() async {
     if (_cartItems.isEmpty) return;
+    
+    double paidTotal = _payments.fold(0, (sum, p) => sum + p.amount);
+    if (paidTotal < grandTotal && _selectedCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer required for credit sales')));
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -100,33 +135,18 @@ class _PosScreenState extends State<PosScreen> {
         items: _cartItems,
         subTotal: subTotal - totalTax,
         taxAmount: totalTax,
-        totalDiscount: 0,
+        discountAmount: 0,
         grandTotal: grandTotal,
         roundOff: 0,
-        payments: [
-          Payment(
-            mode: _paymentMode, 
-            amount: grandTotal,
-            reference: _paymentMode == 'Credit' ? 'CREDIT_SALE' : null,
-          )
-        ],
+        payments: _payments,
       );
 
       final response = await api.post('bills', bill.toJson());
       
-      // Auto-print bill
+      // Auto-print
       try {
-        final savedBill = Bill(
-          billNo: response['billNo'],
-          items: _cartItems,
-          grandTotal: grandTotal,
-          subTotal: subTotal,
-          taxAmount: totalTax,
-          totalDiscount: 0,
-          roundOff: 0,
-          payments: [],
-        );
-        await PdfService.generateAndPrintBill(savedBill);
+        final savedBill = Bill.fromJson(response);
+        await PdfService.generateAndPrintBill(savedBill, companyProfile: _companyProfile);
       } catch (pe) {
         debugPrint('Print error: $pe');
       }
@@ -134,6 +154,7 @@ class _PosScreenState extends State<PosScreen> {
       setState(() {
         _cartItems.clear();
         _selectedCustomer = null;
+        _payments = [Payment(mode: 'Cash', amount: 0)];
         _isLoading = false;
       });
 
@@ -143,6 +164,139 @@ class _PosScreenState extends State<PosScreen> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  void _showSettlementSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          double paid = _payments.fold(0, (sum, p) => sum + p.amount);
+          double balance = grandTotal - paid;
+
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Settlement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('Total: ₹$grandTotal', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                  ],
+                ),
+                const Divider(),
+                ..._payments.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  Payment p = entry.value;
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButton<String>(
+                              value: p.mode,
+                              isExpanded: true,
+                              items: ['Cash', 'UPI', 'Card', 'Credit'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setSheetState(() => _payments[idx] = Payment(mode: val, amount: p.amount, reference: p.reference));
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(isDense: true, prefixText: '₹'),
+                              keyboardType: TextInputType.number,
+                              controller: TextEditingController(text: p.amount.toString())..selection = TextSelection.collapsed(offset: p.amount.toString().length),
+                              onChanged: (val) {
+                                double amt = double.tryParse(val) ?? 0;
+                                setSheetState(() => _payments[idx] = Payment(mode: p.mode, amount: amt, reference: p.reference));
+                                setState(() {});
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                            onPressed: _payments.length > 1 ? () {
+                              setSheetState(() => _payments.removeAt(idx));
+                              setState(() {});
+                            } : null,
+                          ),
+                        ],
+                      ),
+                      if (p.mode == 'UPI' && _companyProfile != null && _companyProfile!['enableQrPayments'] == true && _companyProfile!['upiId'] != null)
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(border: Border.all(color: Colors.blue.shade100), borderRadius: BorderRadius.circular(12), color: Colors.blue.shade50),
+                          child: Column(
+                            children: [
+                              Text('Scan to Pay ₹${p.amount}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              BarcodeWidget(
+                                barcode: Barcode.qrCode(),
+                                data: 'upi://pay?pa=${_companyProfile!['upiId']}&pn=${Uri.encodeComponent(_companyProfile!['upiName'] ?? _companyProfile!['name'])}&am=${p.amount.toStringAsFixed(2)}&cu=INR',
+                                width: 120,
+                                height: 120,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(_companyProfile!['upiId'], style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      if (p.mode == 'UPI' || p.mode == 'Card')
+                        TextField(
+                          decoration: const InputDecoration(hintText: 'Reference ID (optional)', isDense: true, hintStyle: TextStyle(fontSize: 12)),
+                          onChanged: (val) {
+                            setSheetState(() => _payments[idx] = Payment(mode: p.mode, amount: p.amount, reference: val));
+                            setState(() {});
+                          },
+                        ),
+                      const Divider(),
+                    ],
+                  );
+                }),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        setSheetState(() => _payments.add(Payment(mode: 'UPI', amount: balance > 0 ? balance : 0)));
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Mode'),
+                    ),
+                    Text('Balance: ₹${balance.toStringAsFixed(2)}', style: TextStyle(color: balance > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: (_isLoading || (balance > 0 && _selectedCustomer == null)) ? null : () {
+                      Navigator.pop(context);
+                      _checkout();
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                    child: const Text('Complete Sale', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -300,28 +454,11 @@ class _PosScreenState extends State<PosScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      // Payment Mode Selection
-                      Row(
-                        children: ['Cash', 'Bank', 'Credit'].map((mode) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                            child: ChoiceChip(
-                              label: Text(mode, style: TextStyle(fontSize: 12, color: _paymentMode == mode ? Colors.white : Colors.black)),
-                              selected: _paymentMode == mode,
-                              selectedColor: Colors.blue,
-                              onSelected: (selected) {
-                                if (selected) setState(() => _paymentMode = mode);
-                              },
-                            ),
-                          ),
-                        )).toList(),
-                      ),
-                      const SizedBox(height: 20),
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: (_isLoading || (_paymentMode == 'Credit' && _selectedCustomer == null)) ? null : _checkout,
+                          onPressed: (_isLoading || _cartItems.isEmpty) ? null : _showSettlementSheet,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
                             foregroundColor: Colors.white,
@@ -329,7 +466,7 @@ class _PosScreenState extends State<PosScreen> {
                           ),
                           child: _isLoading 
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : Text('Checkout ($_paymentMode)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            : const Text('Settlement & Pay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
